@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TFLite Web App</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        /* Your CSS styles go here */
+        #captureContainer {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+        #imagePreview {
+            max-width: 100%;
+            max-height: 70vh;
+            margin-bottom: 20px;
+        }
+        #confirmButtons {
+            display: flex;
+            gap: 20px;
+        }
+    </style>
+    <script>
+        function openDrawer() {
+          document.getElementById("drawer").style.width = "250px";
+          document.getElementById("content").style.marginLeft = "250px";
+        }
+      
+        function closeDrawer() {
+          document.getElementById("drawer").style.width = "0";
+          document.getElementById("content").style.marginLeft = "0";
+        }
+    </script>
+</head>
+<body>
+    <div class="topnav" style="position: relative;top: 120px;">
+        <a class="active" href="homepage.html">Home</a>
+        <a href="AboutUs.html">About</a>
+        <a href="Feedback.html">Feedback</a>
+        <a href="TermsOfService.html">TermsOfService</a>
+        <a href="FAQ.html">FAQs</a>
+      </div>
+      <h2 style="color: rgb(226, 236, 229); text-align: center;">Fruit Quality Model</h2><br>
+      <br>
+      
+    <!-- Page 1: Capture Image -->
+    <div id="captureContainer">
+        <video id="video" width="640" height="480" autoplay></video>
+        <button onclick="captureImage()">Capture Image</button>
+        <div id="gallery">
+            <!-- Images will be added dynamically using JavaScript -->
+        </div>
+        <input type="file" id="upload" accept="image/*" multiple>
+        <!-- Add any additional buttons or controls here -->
+        <script src="gallery.js"></script>
+    </div>
+    <br>
+      <br>
+    <!-- Page 2: Image Preview and Confirmation -->
+    <div id="confirmContainer" style="display: none;">
+        <img id="imagePreview" alt="Captured Image">
+        <div id="confirmButtons" style="padding-left: 230px;">
+            <button onclick="retakeImage()">Retake</button>
+            <button onclick="runInference()">Confirm</button>
+        </div>
+    </div>
+    <br>
+      <br>
+    <!-- Page 3: TFLite Model Inference -->
+    <div id="inferenceContainer" style="display: none;">
+        <p>Running TFLite Model Inference...</p>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.3.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@3.0.4"></script>
+    <script>
+        // Your JavaScript code goes here
+
+        let videoStream, imageCapture, imageData;
+
+        // Function to start the camera and capture image
+        async function startCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                videoStream = stream;
+                const videoElement = document.getElementById('video');
+                videoElement.srcObject = stream;
+
+                const track = stream.getVideoTracks()[0];
+                imageCapture = new ImageCapture(track);
+            } catch (error) {
+                console.error('Error accessing camera:', error);
+            }
+        }
+
+        // Function to capture image
+        async function captureImage() {
+            try {
+                const photo = await imageCapture.takePhoto();
+                imageData = photo;
+                const imagePreview = document.getElementById('imagePreview');
+                imagePreview.src = URL.createObjectURL(photo);
+
+                // Display the confirmation page
+                document.getElementById('captureContainer').style.display = 'none';
+                document.getElementById('confirmContainer').style.display = 'block';
+            } catch (error) {
+                console.error('Error capturing image:', error);
+            }
+        }
+
+        // Function to retake image
+        function retakeImage() {
+            // Reset the UI and start the camera again
+            document.getElementById('captureContainer').style.display = 'flex';
+            document.getElementById('confirmContainer').style.display = 'none';
+            startCamera();
+        }
+
+        // Function to run TFLite model inference
+        // Function to run TFLite model inference
+        async function runInference() {
+    // Display the inference page
+    document.getElementById('confirmContainer').style.display = 'none';
+    document.getElementById('inferenceContainer').style.display = 'block';
+
+    // Load the TFLite model
+    const model = await tf.lite.loadModel('Plant_Disease.tflite');
+
+    // Process the image data and perform inference
+    const tensor = preprocessImage(imageData);
+    const predictions = model.predict(tensor);
+
+    // Get the output tensor values as a regular array
+    const output = predictions.dataSync();
+
+    // Process the predictions as needed
+    // For example, you can display the top prediction label and confidence
+
+    const topPredictionIndex = output.indexOf(Math.max(...output));
+    const topPredictionLabel = 'Class ' + topPredictionIndex;
+    const topPredictionConfidence = output[topPredictionIndex];
+
+    // Display the results or take further actions
+    const inferenceContainer = document.getElementById('inferenceContainer');
+    inferenceContainer.innerHTML = `
+        <p>Top Prediction: ${topPredictionLabel}</p>
+        <p>Confidence: ${topPredictionConfidence.toFixed(2)}</p>
+    `;
+
+    // Clean up resources
+    tf.dispose([tensor]);
+
+    // Optionally, you can navigate to another page or perform additional actions
+}
+
+        // Function to display results in the HTML page (adjust as needed)
+        function displayResults(results) {
+            const inferenceContainer = document.getElementById('inferenceContainer');
+            inferenceContainer.innerHTML = '<p>Results:</p>';
+            
+            // Display each result
+            results.forEach((result, index) => {
+                const resultElement = document.createElement('p');
+                resultElement.textContent = `Class ${index + 1}: ${result}`;
+                inferenceContainer.appendChild(resultElement);
+            });
+        }
+
+
+        // Preprocess the input image
+        function preprocessImage(photo) {
+            // Implement image preprocessing here based on your model requirements
+            // Convert the image to a tensor
+            const tensor = tf.browser.fromPixels(photo)
+                .resizeNearestNeighbor([inputSize, inputSize]) // Adjust input size based on your model
+                .toFloat()
+                .div(tf.scalar(255.0))
+                .expandDims();
+
+            return tensor;
+        }
+
+        // Initialize the camera on page load
+        startCamera();
+    </script>
+    <div id="drawer">
+        <a href="javascript:void(0)" class="close-btn" onclick="closeDrawer()">&times;</a>
+         <a href="homepage.html">Home</a>
+         <div class="dropdown">
+         <a href="#">Download</a>
+             <div class="dropdown-content">
+                 <a href="documentation.html">Documentation</a>
+                 <a href="#">App Installation</a>
+             </div>
+         </div>
+         <a href="ContactUs.html">Contact</a>
+     </div>
+       <div id="content">
+         <div id="menu-btn" onclick="openDrawer()">&#9776; Menu</div>
+       </div>
+</body>
+</html>
